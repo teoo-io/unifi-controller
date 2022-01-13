@@ -1,0 +1,38 @@
+name: 'Automatic Deployment'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - .gitignore
+      - LICENSE
+
+jobs:
+  deploy-to-k3s:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Set Kubernetes context
+      - name: Kubernetes Set Context
+        uses: Azure/k8s-set-context@v2
+        with:
+          method: kubeconfig
+          # Contents of kubeconfig file
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+
+      # Deploys to K3s
+      - name: Deploy to K3s
+        run: |
+          kubectl create ns ${{ secrets.APP_NAME }}-system || echo "Skipping ..."
+          
+          sed -i'' -e 's/APP_NAME/${{ secrets.APP_NAME }}/g' deployment.yml
+          kubectl apply -f deployment.yml
+          
+          sed -i'' -e 's/APP_NAME/${{ secrets.APP_NAME }}/g' service.yml
+          kubectl apply -f service.yml
+          
+          sed -i'' -e 's/APP_NAME/${{ secrets.APP_NAME }}/g' ingress.yml
+          kubectl apply -f ingress.yml
